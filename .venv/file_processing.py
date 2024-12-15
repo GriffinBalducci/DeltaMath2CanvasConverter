@@ -8,8 +8,13 @@ def extract_homework_key(hw_name):
     return match.group(0) if match else None  # Return the matched Homework #-# if valid, or None if not
 
 def load_and_clean(canvas_file, deltamath_file):
-    # Load the Canvas CSV and DeltaMath Excel files
+    # Load the Canvas CSV file
     canvas_df = pd.read_csv(canvas_file)
+    # Cut out the first row for later
+    first_row = canvas_df.iloc[0]
+    canvas_df = canvas_df.iloc[1:]
+
+    # Load the DeltaMath Excel file
     deltamath_df = pd.read_excel(deltamath_file)
 
     # Clean blank cells (if any column contains blank, replace it with NaN)
@@ -51,12 +56,21 @@ def load_and_clean(canvas_file, deltamath_file):
 
     # Divide all homework scores in DeltaMath by 10, to match with Canvas scoring
     dm_homework_columns = [col for col in deltamath_df.columns if extract_homework_key(col)]
-    deltamath_df[dm_homework_columns] = deltamath_df[dm_homework_columns] / 10
+    
+    # First, identify the non-numeric cells ('EX')
+    for col in dm_homework_columns:
+        deltamath_df[col] = deltamath_df[col].apply(lambda x: x if isinstance(x, str) and x == "EX" else pd.to_numeric(x, errors='coerce'))
+    
+    # Now, safely divide the numeric scores by 10, replacing any 'EX' with NaN, which can be handled later
+    deltamath_df[dm_homework_columns] = deltamath_df[dm_homework_columns].apply(pd.to_numeric, errors='coerce') / 10
 
     cv_homework_columns = [col for col in canvas_df.columns if extract_homework_key(col)]
 
-    # Replace NaN values in homework columns with 0 in both Canvas and DeltaMath DataFrames
-    canvas_df[cv_homework_columns] = canvas_df[cv_homework_columns].fillna(0)
+    # Ensure Canvas homework columns are numeric as well, while keeping 'EX' values intact
+    for col in cv_homework_columns:
+        canvas_df[col] = canvas_df[col].apply(lambda x: x if isinstance(x, str) and x == "EX" else pd.to_numeric(x, errors='coerce'))
+
+    # Replace NaN values in homework columns with 0 in the DeltaMath DataFrame (already done for Canvas)
     deltamath_df[dm_homework_columns] = deltamath_df[dm_homework_columns].fillna(0)
 
     # Keep only the required columns in Canvas (Student, IDs, Section, and valid Homework columns)
@@ -65,4 +79,5 @@ def load_and_clean(canvas_file, deltamath_file):
     # Keep only the required columns in DeltaMath (Student, Class, and valid Homework columns)
     deltamath_df = deltamath_df[['Student', 'Class'] + dm_homework_columns]
 
-    return canvas_df, deltamath_df, canvas_columns_mapping
+    return canvas_df, deltamath_df, canvas_columns_mapping, first_row
+

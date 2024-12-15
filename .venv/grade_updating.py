@@ -49,10 +49,6 @@ def update_grades(canvas_df, deltamath_df, canvas_columns_mapping):
                     continue
                 
                 # Update Canvas score if DeltaMath score exists and is higher
-                print(row)
-                print(row[col_y])
-                print(row[col_x])
-                print('----------')
                 if pd.notna(row[col_y]) and row[col_y] > row[col_x]:  # Ensure DeltaMath score is valid and higher
                     updated_df.at[index, col_x] = row[col_y]  # Update Canvas score with DeltaMath score
 
